@@ -5,4 +5,4 @@ from .heal import changes, counts, fingerprints, repair, same_layout
 
 __all__ = ["TYPES", "PageChanged", "extract", "text", "valid", "validate",
            "changes", "counts", "fingerprints", "repair", "same_layout"]
-__version__ = "0.1.0"
+__version__ = "0.1.1"
