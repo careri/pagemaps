@@ -152,3 +152,88 @@ def _check(page: str, list_name: str, lspec: dict, items: list[dict]) -> None:
         if missing:
             raise PageChanged(f"page {page}: field {list_name}.{name} missing in {missing} of {len(items)} items",
                               list_name, name, len(items))
+
+
+# --- checking a map -------------------------------------------------------------------------------
+
+FIELD_OPTIONS = {"select", "type", "closest", "text", "attr", "pattern", "all", "many", "map", "exists", "required"}
+
+
+def validate(spec: Any, like: dict | None = None) -> list[str]:
+    """What is wrong with a map, [] when nothing: known options only, selectors and patterns that
+    compile. `like`: a map whose lists and fields this one must keep (so code reading the result still
+    finds them) — e.g. the built-in map an edited one replaces."""
+    import soupsieve
+
+    problems: list[str] = []
+
+    def css(where: str, value: Any) -> None:
+        if not isinstance(value, str) or not value.strip():
+            problems.append(f"{where}: a CSS selector is needed")
+            return
+        try:
+            soupsieve.compile(value)
+        except Exception as e:
+            problems.append(f"{where}: {e}")
+
+    if not isinstance(spec, dict) or not isinstance(spec.get("lists"), dict) or not spec["lists"]:
+        return ["a map is an object with \"lists\""]
+    for key in spec:
+        if key not in ("page", "about", "url", "lists"):
+            problems.append(f"unknown key {key!r}")
+    for list_name, lspec in spec["lists"].items():
+        where = f"lists.{list_name}"
+        if not isinstance(lspec, dict):
+            problems.append(f"{where}: an object is needed")
+            continue
+        for key in lspec:
+            if key not in ("item", "fields", "expect"):
+                problems.append(f"{where}: unknown key {key!r}")
+        css(f"{where}.item", lspec.get("item"))
+        expect = lspec.get("expect", {})
+        if not isinstance(expect, dict) or set(expect) - {"minItems"} or not isinstance(expect.get("minItems", 0), int):
+            problems.append(f"{where}.expect: only minItems (a number)")
+        fields = lspec.get("fields")
+        if not isinstance(fields, dict) or not fields:
+            problems.append(f"{where}.fields: an object with at least one field is needed")
+            continue
+        for name, f in fields.items():
+            fw = f"{where}.fields.{name}"
+            if not isinstance(f, dict):
+                problems.append(f"{fw}: an object is needed")
+                continue
+            for key in set(f) - FIELD_OPTIONS:
+                problems.append(f"{fw}: unknown option {key!r}")
+            if "select" in f:
+                selects = f["select"] if isinstance(f["select"], list) else [f["select"]]
+                if not selects:
+                    problems.append(f"{fw}.select: at least one selector")
+                for i, s in enumerate(selects):
+                    css(f"{fw}.select[{i}]" if isinstance(f["select"], list) else f"{fw}.select", s)
+            for key in ("closest", "exists"):
+                if key in f:
+                    css(f"{fw}.{key}", f[key])
+            if "pattern" in f:
+                try:
+                    if re.compile(f["pattern"]).groups < 1:
+                        problems.append(f"{fw}.pattern: needs a group (the value)")
+                except (re.error, TypeError) as e:
+                    problems.append(f"{fw}.pattern: {e}")
+            if "type" in f and f["type"] not in TYPES and f["type"] != "flag":
+                problems.append(f"{fw}.type: one of {', '.join(sorted(TYPES))}, flag")
+            for key in ("text", "all", "many", "required"):
+                if key in f and not isinstance(f[key], bool):
+                    problems.append(f"{fw}.{key}: true or false")
+            if "attr" in f and not isinstance(f["attr"], str):
+                problems.append(f"{fw}.attr: an attribute name")
+            if "map" in f and not (isinstance(f["map"], dict) and all(isinstance(k, str) for k in f["map"])):
+                problems.append(f"{fw}.map: an object")
+    if like:
+        for list_name, lspec in like["lists"].items():
+            got = spec["lists"].get(list_name)
+            if not isinstance(got, dict):
+                problems.append(f"lists.{list_name}: missing (the code reads it)")
+                continue
+            for name in set(lspec["fields"]) - set(got.get("fields") or {}):
+                problems.append(f"lists.{list_name}.fields.{name}: missing (the code reads it)")
+    return problems

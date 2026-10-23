@@ -102,3 +102,24 @@ def test_a_row_more_or_less_is_the_same_layout():
 ])
 def test_types(type_, value, ok):
     assert valid(type_, value) is ok
+
+
+def test_validate_a_map():
+    from pagemaps import validate
+
+    assert validate(SPEC) == [] and validate(SPEC, like=SPEC) == []
+    bad = json.loads(json.dumps(SPEC))
+    f = bad["lists"]["players"]["fields"]
+    f["name"]["select"] = ["span.name", "span[unclosed"]
+    f["number"]["pattern"] = "\\d+"
+    f["badge"]["fetch"] = "https://elsewhere.example"
+    del f["number"]["type"]
+    bad["lists"]["players"]["fields"]["extra"] = {"type": "colour"}
+    problems = validate(bad, like=SPEC)
+    assert any("select[1]" in p for p in problems)
+    assert any("pattern: needs a group" in p for p in problems)
+    assert any("unknown option 'fetch'" in p for p in problems)
+    assert any("extra.type" in p for p in problems)
+    del bad["lists"]["players"]["fields"]["name"]
+    assert any("fields.name: missing" in p for p in validate(bad, like=SPEC))
+    assert validate("not a map") == ['a map is an object with "lists"']
