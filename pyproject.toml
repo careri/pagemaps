@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pagemaps"
+version = "0.1.0"
+description = "Self-healing HTML scraping: JSON page maps that find their fields again when a site's markup changes."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "beautifulsoup4>=4.12",
+  "soupsieve>=2.5",
+  # The repair uses its element scoring (relocate); the base package only — no browser.
+  "scrapling>=0.5,<0.6",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8"]
+
+[project.urls]
+Source = "https://github.com/careri/pagemaps"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
