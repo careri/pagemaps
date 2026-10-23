@@ -66,4 +66,4 @@ except PageChanged:
 
 ## License
 
-See `LICENSE`.
+BSD 3-Clause — see `LICENSE`. Its dependencies: Scrapling, lxml, cssselect, w3lib (BSD-3-Clause), BeautifulSoup and soupsieve (MIT), orjson (MPL-2.0 and Apache-2.0 or MIT), tld (MPL-1.1 or GPL-2.0 or LGPL-2.1).
